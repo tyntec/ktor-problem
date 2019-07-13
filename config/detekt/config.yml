@@ -1,0 +1,8 @@
+test-pattern: # Configure exclusions for test sources
+  active: true
+  patterns: # Test file regexes
+  - 'src/test/.*'
+
+formatting:
+  MaximumLineLength:
+    active: false
