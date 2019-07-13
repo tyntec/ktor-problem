@@ -29,14 +29,16 @@ import io.ktor.request.path
 import io.ktor.response.respond
 import io.ktor.util.AttributeKey
 
+private val problemContentType = ContentType("application", "problem+json")
+
 class Problems(configuration: Configuration) {
     private val exceptions = configuration.exceptions
     private val default = configuration.default
-    private val objectMapper = ObjectMapper().findAndRegisterModules().apply { configuration.jacksonConfig }
+    private val objectMapper = configuration.mapper
 
     class Configuration {
 
-        internal var jacksonConfig: ObjectMapper.() -> Unit = {}
+        internal var mapper = ObjectMapper().findAndRegisterModules()
 
         internal val exceptions = mutableMapOf<Class<*>, ThrowableProblem.(ProblemContext<Throwable>) -> Unit>()
 
@@ -63,7 +65,7 @@ class Problems(configuration: Configuration) {
         }
 
         fun jackson(block: ObjectMapper.() -> Unit) {
-            jacksonConfig = block
+            mapper.apply(block)
         }
     }
 
@@ -87,23 +89,20 @@ class Problems(configuration: Configuration) {
         }
     }
 
-    private suspend fun intercept(call: ApplicationCall, e: Throwable) {
-        val problem: ThrowableProblem = Problem()
-        findExceptionByClass(e::class.java).invoke(problem, ProblemContext(call, e))
-        val message = TextContent(objectMapper.writeValueAsString(problem), ContentType("application", "problem+json"))
-        call.respond(problem.statusCode, message)
+    private suspend fun intercept(call: ApplicationCall, throwable: Throwable) {
+        val problem = when (throwable) {
+            is ThrowableProblem -> throwable
+            else -> {
+                Problem().apply {
+                    (findExceptionByClass(throwable::class.java))(ProblemContext(call, throwable))
+                }
+            }
+        }
+        call.respond(problem.statusCode, TextContent(objectMapper.writeValueAsString(problem), problemContentType))
     }
 
     private fun findExceptionByClass(clazz: Class<out Throwable>): (ThrowableProblem.(ProblemContext<Throwable>) -> Unit) {
         exceptions[clazz]?.let { return it }
-        if (clazz is ThrowableProblem)
-            return { _ ->
-                statusCode = clazz.statusCode
-                additionalDetails = clazz.additionalDetails
-                instance = clazz.instance
-                title = clazz.title
-                type = clazz.type
-            }
         return default
     }
 

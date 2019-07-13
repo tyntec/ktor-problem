@@ -8,6 +8,7 @@ version = "0.1"
 
 val ktorVersion = "1.2.2"
 val jacksonVersion = "2.9.9"
+val junitVersion = "5.4.2"
 
 detekt {
     input = files("src/main/kotlin")
@@ -23,8 +24,12 @@ dependencies {
     implementation(jackson("databind"))
     implementation(kotlin("stdlib-jdk8"))
     
-    implementation(ktorServer("core"))
-    //testImplementation(ktorServer("tests"))
+    api(ktorServer("core"))
+    testImplementation(ktorServer("tests"))
+    testImplementation("com.willowtreeapps.assertk:assertk-jvm:0.17")
+    testImplementation(junit("api"))
+    testImplementation(junit("params"))
+    testRuntime(junit("engine", "5.3.2"))
 }
 
 fun DependencyHandler.ktor(module: String, version: String = ktorVersion): Any =
@@ -39,3 +44,6 @@ fun DependencyHandler.ktorClient(module: String, version: String = ktorVersion):
 
 fun DependencyHandler.jackson(module: String, version: String = jacksonVersion): Any =
     "com.fasterxml.jackson.core:jackson-$module:$version"
+
+fun DependencyHandler.junit(module: String, version: String = junitVersion): Any =
+    "org.junit.jupiter:junit-jupiter-$module:$version"
