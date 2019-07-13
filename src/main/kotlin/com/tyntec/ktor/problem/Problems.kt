@@ -81,6 +81,14 @@ class Problems(configuration: Configuration) {
 
     private fun findExceptionByClass(clazz: Class<out Throwable>): (ThrowableProblem.(ProblemContext<Throwable>) -> Unit)? {
         exceptions[clazz]?.let { return it }
+        if (clazz is ThrowableProblem)
+            return { ctx ->
+                statusCode = clazz.statusCode
+                additionalDetails = clazz.additionalDetails
+                instance = clazz.instance
+                title = clazz.title
+                type = clazz.type
+            }
         return default
     }
 
