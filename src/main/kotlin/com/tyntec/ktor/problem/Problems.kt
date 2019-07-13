@@ -1,3 +1,18 @@
+/*
+ *    Copyright 2019 tyntec
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
 package com.tyntec.ktor.problem
 
 import com.fasterxml.jackson.annotation.JsonAnyGetter
@@ -26,7 +41,7 @@ class Problems(configuration: Configuration) {
         internal val exceptions = mutableMapOf<Class<*>, ThrowableProblem.(ProblemContext<Throwable>) -> Unit>()
 
         internal var default: ThrowableProblem.(ProblemContext<Throwable>) -> Unit = { ctx ->
-            title = ctx.call.request.path()
+            instance = ctx.call.request.path()
             statusCode = HttpStatusCode.InternalServerError
         }
 
@@ -73,16 +88,16 @@ class Problems(configuration: Configuration) {
     }
 
     private suspend fun intercept(call: ApplicationCall, e: Throwable) {
-        val problem = Problem()
-        findExceptionByClass(e::class.java)?.invoke(problem, ProblemContext(call, e))
+        val problem: ThrowableProblem = Problem()
+        findExceptionByClass(e::class.java).invoke(problem, ProblemContext(call, e))
         val message = TextContent(objectMapper.writeValueAsString(problem), ContentType("application", "problem+json"))
         call.respond(problem.statusCode, message)
     }
 
-    private fun findExceptionByClass(clazz: Class<out Throwable>): (ThrowableProblem.(ProblemContext<Throwable>) -> Unit)? {
+    private fun findExceptionByClass(clazz: Class<out Throwable>): (ThrowableProblem.(ProblemContext<Throwable>) -> Unit) {
         exceptions[clazz]?.let { return it }
         if (clazz is ThrowableProblem)
-            return { ctx ->
+            return { _ ->
                 statusCode = clazz.statusCode
                 additionalDetails = clazz.additionalDetails
                 instance = clazz.instance
