@@ -67,7 +67,7 @@ class ProblemsShould {
                 statusCode = HttpStatusCode.MethodNotAllowed
                 detail = "You're not allowed to trigger this action"
                 instance = "bad resource"
-                type = "Test-Problem"
+                type = "Test-DefaultProblem"
             }
         }
 
@@ -91,7 +91,7 @@ class ProblemsShould {
             assertThat(content.get("instance").textValue()).isEqualTo("bad resource")
             assertThat(content.get("status").intValue()).isEqualTo(405)
             assertThat(content.get("title").textValue()).isEqualTo("Method Not Allowed")
-            assertThat(content.get("type").textValue()).isEqualTo("Test-Problem")
+            assertThat(content.get("type").textValue()).isEqualTo("Test-DefaultProblem")
             assertThat(content.get("detail").textValue()).isEqualTo("You're not allowed to trigger this action")
         }
     }
@@ -180,8 +180,8 @@ class ProblemsShould {
 class ProblemToBeThrown(
     override var type: String? = "Any type",
     override var statusCode: HttpStatusCode = HttpStatusCode.BadRequest,
-    override var detail: String? = "Problem to be thrown",
+    override var detail: String? = "DefaultProblem to be thrown",
     override var instance: String? = null,
     override var additionalDetails: Map<String, Any> = emptyMap(),
     override var title: String? = "Awesome title"
-) : ThrowableProblem, Throwable()
+) : Problem, Throwable()

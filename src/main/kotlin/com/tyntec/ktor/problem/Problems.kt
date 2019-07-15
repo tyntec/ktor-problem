@@ -40,28 +40,28 @@ class Problems(configuration: Configuration) {
 
         internal var mapper = ObjectMapper().findAndRegisterModules()
 
-        internal val exceptions = mutableMapOf<Class<*>, ThrowableProblem.(ProblemContext<Throwable>) -> Unit>()
+        internal val exceptions = mutableMapOf<Class<*>, Problem.(ProblemContext<Throwable>) -> Unit>()
 
-        internal var default: ThrowableProblem.(ProblemContext<Throwable>) -> Unit = { ctx ->
+        internal var default: Problem.(ProblemContext<Throwable>) -> Unit = { ctx ->
             instance = ctx.call.request.path()
             statusCode = HttpStatusCode.InternalServerError
         }
 
-        fun default(handler: ThrowableProblem.(ProblemContext<Throwable>) -> Unit) {
+        fun default(handler: Problem.(ProblemContext<Throwable>) -> Unit) {
             @Suppress("UNCHECKED_CAST")
             default = handler
         }
 
         inline fun <reified T : Throwable> exception(
-            noinline handler: ThrowableProblem.(ProblemContext<T>) -> Unit
+            noinline handler: Problem.(ProblemContext<T>) -> Unit
         ) = exception(T::class.java, handler)
 
         fun <T : Throwable> exception(
             klass: Class<T>,
-            handler: ThrowableProblem.(ProblemContext<T>) -> Unit
+            handler: Problem.(ProblemContext<T>) -> Unit
         ) {
             @Suppress("UNCHECKED_CAST")
-            exceptions.put(klass, handler as ThrowableProblem.(ProblemContext<Throwable>) -> Unit)
+            exceptions.put(klass, handler as Problem.(ProblemContext<Throwable>) -> Unit)
         }
 
         fun jackson(block: ObjectMapper.() -> Unit) {
@@ -91,9 +91,9 @@ class Problems(configuration: Configuration) {
 
     private suspend fun intercept(call: ApplicationCall, throwable: Throwable) {
         val problem = when (throwable) {
-            is ThrowableProblem -> throwable
+            is Problem -> throwable
             else -> {
-                Problem().apply {
+                DefaultProblem().apply {
                     (findExceptionByClass(throwable::class.java))(ProblemContext(call, throwable))
                 }
             }
@@ -101,14 +101,14 @@ class Problems(configuration: Configuration) {
         call.respond(problem.statusCode, TextContent(objectMapper.writeValueAsString(problem), problemContentType))
     }
 
-    private fun findExceptionByClass(clazz: Class<out Throwable>): (ThrowableProblem.(ProblemContext<Throwable>) -> Unit) {
+    private fun findExceptionByClass(clazz: Class<out Throwable>): (Problem.(ProblemContext<Throwable>) -> Unit) {
         exceptions[clazz]?.let { return it }
         return default
     }
 
 }
 
-interface ThrowableProblem {
+interface Problem {
     var type: String?
     @get:JsonIgnore
     var statusCode: HttpStatusCode
@@ -122,13 +122,13 @@ interface ThrowableProblem {
     var title: String?
 }
 
-class Problem(
+class DefaultProblem(
     override var type: String? = null,
     override var statusCode: HttpStatusCode = HttpStatusCode.InternalServerError,
     override var detail: String? = null,
     override var instance: String? = null,
     override var additionalDetails: Map<String, Any> = emptyMap()
-) : ThrowableProblem {
+) : Problem {
     override var title: String? = null
         get() {
             if (field.isNullOrEmpty())
