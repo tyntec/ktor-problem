@@ -15,9 +15,8 @@
  */
 package com.tyntec.ktor.problem
 
-import com.fasterxml.jackson.annotation.JsonAnyGetter
-import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.tyntec.ktor.problem.jackson.ProblemMixin
 import io.ktor.application.ApplicationCall
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.ApplicationFeature
@@ -38,7 +37,7 @@ class Problems(configuration: Configuration) {
 
     class Configuration {
 
-        internal var mapper = ObjectMapper().findAndRegisterModules()
+        internal var mapper = ObjectMapper().findAndRegisterModules().addMixIn(Problem::class.java, ProblemMixin::class.java)
 
         internal val exceptions = mutableMapOf<Class<*>, Problem.(ProblemContext<Throwable>) -> Unit>()
 
@@ -98,7 +97,9 @@ class Problems(configuration: Configuration) {
                 }
             }
         }
-        call.respond(problem.statusCode, TextContent(objectMapper.writeValueAsString(problem), problemContentType))
+        val content = objectMapper.writeValueAsString(problem)
+        println(content)
+        call.respond(problem.statusCode, TextContent(content, problemContentType))
     }
 
     private fun findExceptionByClass(clazz: Class<out Throwable>): (Problem.(ProblemContext<Throwable>) -> Unit) {
@@ -110,11 +111,9 @@ class Problems(configuration: Configuration) {
 
 interface Problem {
     var type: String?
-    @get:JsonIgnore
     var statusCode: HttpStatusCode
     var detail: String?
     var instance: String?
-    @get:JsonAnyGetter
     var additionalDetails: Map<String, Any>
     val status: Int
         get() = statusCode.value
