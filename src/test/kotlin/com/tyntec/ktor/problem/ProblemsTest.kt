@@ -20,6 +20,8 @@ import assertk.assertThat
 import assertk.assertions.isEqualTo
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.PropertyNamingStrategy
+import com.tyntec.ktor.problem.gson.gson
+import com.tyntec.ktor.problem.jackson.jackson
 import io.ktor.application.install
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
@@ -38,7 +40,9 @@ class ProblemsShould {
 
     @Test
     internal fun `respond with internal server error by default`() = withTestApplication{
-        application.install(Problems)
+        application.install(Problems) {
+            jackson {  }
+        }
 
         application.routing {
             get("/error") {
@@ -69,6 +73,7 @@ class ProblemsShould {
                 instance = "bad resource"
                 type = "Test-DefaultProblem"
             }
+            jackson {  }
         }
 
         application.routing {
@@ -103,6 +108,7 @@ class ProblemsShould {
                 statusCode = HttpStatusCode.PaymentRequired
                 instance = ctx.call.request.path()
             }
+            jackson {  }
         }
 
         application.routing {
@@ -127,7 +133,9 @@ class ProblemsShould {
 
     @Test
     internal fun `respond with throwable problem implementation`() = withTestApplication{
-        application.install(Problems)
+        application.install(Problems) {
+            jackson {  }
+        }
 
         application.routing {
             get("/customizedError") {
@@ -175,6 +183,34 @@ class ProblemsShould {
             assertThat(content.get("Title").textValue()).isEqualTo("Internal Server Error")
         }
     }
+
+    @Test
+    internal fun `use gson`() = withTestApplication{
+        application.install(Problems) {
+            gson{}
+        }
+
+        application.routing {
+            get("/error") {
+                throw IllegalArgumentException()
+            }
+        }
+
+        handleRequest(HttpMethod.Get, "/error") {
+
+        }.response.let {response ->
+
+            val content = objectMapper.readTree(response.content)
+            println(response.content)
+
+            assertThat(response.status()).isEqualTo(HttpStatusCode.InternalServerError)
+            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+            assertThat(content.get("instance").textValue()).isEqualTo("/error")
+            assertThat(content.get("status").intValue()).isEqualTo(500)
+            assertThat(content.get("title").textValue()).isEqualTo("Internal Server Error")
+        }
+    }
+
 }
 
 class ProblemToBeThrown(
@@ -183,5 +219,6 @@ class ProblemToBeThrown(
     override var detail: String? = "DefaultProblem to be thrown",
     override var instance: String? = null,
     override var additionalDetails: Map<String, Any> = emptyMap(),
-    override var title: String? = "Awesome title"
+    override var title: String? = "Awesome title",
+    override var status: Int? = null
 ) : Problem, Throwable()

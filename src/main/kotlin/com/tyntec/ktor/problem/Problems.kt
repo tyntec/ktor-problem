@@ -15,8 +15,7 @@
  */
 package com.tyntec.ktor.problem
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.tyntec.ktor.problem.jackson.ProblemMixin
+import com.tyntec.ktor.problem.gson.Exclude
 import io.ktor.application.ApplicationCall
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.ApplicationFeature
@@ -33,11 +32,15 @@ private val problemContentType = ContentType("application", "problem+json")
 class Problems(configuration: Configuration) {
     private val exceptions = configuration.exceptions
     private val default = configuration.default
-    private val objectMapper = configuration.mapper
+    private val converter = configuration.converter
 
     class Configuration {
 
-        internal var mapper = ObjectMapper().findAndRegisterModules().addMixIn(Problem::class.java, ProblemMixin::class.java)
+        internal var converter : Converter = object : Converter {
+            override fun convert(problem: Any): String {
+                throw NoConverterConfiguredException()
+            }
+        }
 
         internal val exceptions = mutableMapOf<Class<*>, Problem.(ProblemContext<Throwable>) -> Unit>()
 
@@ -61,10 +64,6 @@ class Problems(configuration: Configuration) {
         ) {
             @Suppress("UNCHECKED_CAST")
             exceptions.put(klass, handler as Problem.(ProblemContext<Throwable>) -> Unit)
-        }
-
-        fun jackson(block: ObjectMapper.() -> Unit) {
-            mapper.apply(block)
         }
     }
 
@@ -97,8 +96,17 @@ class Problems(configuration: Configuration) {
                 }
             }
         }
-        val content = objectMapper.writeValueAsString(problem)
-        call.respond(problem.statusCode, TextContent(content, problemContentType))
+
+        with(problem) {
+            if(status == null) {
+                status = statusCode.value
+            }
+            if(title.isNullOrEmpty()) {
+                title = statusCode.description
+            }
+        }
+        val text = converter.convert(problem)
+        call.respond(problem.statusCode, TextContent(text, problemContentType))
     }
 
     private fun findExceptionByClass(clazz: Class<out Throwable>): (Problem.(ProblemContext<Throwable>) -> Unit) {
@@ -108,15 +116,20 @@ class Problems(configuration: Configuration) {
 
 }
 
+class NoConverterConfiguredException : Throwable()
+
+interface Converter {
+    fun convert(problem: Any) : String
+}
+
 interface Problem {
     var type: String?
+    @Exclude
     var statusCode: HttpStatusCode
     var detail: String?
     var instance: String?
     var additionalDetails: Map<String, Any>
-    val status: Int
-        get() = statusCode.value
-
+    var status: Int?
     var title: String?
 }
 
@@ -125,10 +138,8 @@ class DefaultProblem(
     override var statusCode: HttpStatusCode = HttpStatusCode.InternalServerError,
     override var detail: String? = null,
     override var instance: String? = null,
-    override var additionalDetails: Map<String, Any> = emptyMap()
-) : Problem {
+    override var additionalDetails: Map<String, Any> = emptyMap(),
+    override var status: Int? = null,
     override var title: String? = null
-        get() = if (field.isNullOrEmpty()) statusCode.description else field
-
-}
+) : Problem
 
