@@ -98,7 +98,6 @@ class Problems(configuration: Configuration) {
             }
         }
         val content = objectMapper.writeValueAsString(problem)
-        println(content)
         call.respond(problem.statusCode, TextContent(content, problemContentType))
     }
 
@@ -129,10 +128,7 @@ class DefaultProblem(
     override var additionalDetails: Map<String, Any> = emptyMap()
 ) : Problem {
     override var title: String? = null
-        get() {
-            if (field.isNullOrEmpty())
-                return statusCode.description
-            return field
-        }
+        get() = if (field.isNullOrEmpty()) statusCode.description else field
+
 }
 
