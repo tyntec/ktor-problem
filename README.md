@@ -7,15 +7,38 @@ It is inspired by Zalando's [Problem](https://github.com/zalando/problem) librar
 
 ### Dependency
 
-TODO 
+    com.tyntec:ktor-problem:$ktorProblemVersion 
 
 ### Installation 
 
 In your ktor application simply add
 
-    install(Problems)
+    install(Problems) {
+      
+    }
+
+Ktor Problem comes along with support of Jackson and Gson for serialization.
+
+The configuration is similar to the [Content Negotation](https://ktor.io/servers/features/content-negotiation.html) feature of Ktor.
+
+*Jackson*
+
+    install(Problems) {
+      jackson {}      
+    }
     
-Now the application will catch all exceptions and wrap them in a Problems object, like this
+*Gson*
+
+    install(Problems) {
+      gson {}
+    }
+    
+*custom one*
+
+Ktor Problem allows you to customize the serialization to json completely. This is covered in the section below
+
+    
+The application will catch all exceptions and wrap them in a Problems object, like this
 
     {
       "status" : 500,
@@ -49,3 +72,16 @@ Like in this example
 
 The default behavior is configured by the ``default`` configuration method.
 It has the access to the same ``context`` object as the exception specific handling.
+
+## Advanced usage
+
+### Custom json problemConverter
+
+In order to provider your custom json problemConverter you need to implement the ``ProblemConverter`` interface.
+
+Afterwards enable it via 
+
+    install(Problems) {
+      converter{MyConverter()}      
+    }
+ 
