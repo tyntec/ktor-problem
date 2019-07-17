@@ -1,4 +1,7 @@
 # ktor-problem
+[![Build Status](https://travis-ci.org/tyntec/ktor-problem.svg?branch=master)](https://travis-ci.org/tyntec/ktor-problem)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://raw.githubusercontent.com/zalando/problem/master/LICENSE)
+
 Feature for [Ktor](https://ktor.io) implementing [Rfc7807](https://tools.ietf.org/html/rfc7807)
 
 It is inspired by Zalando's [Problem](https://github.com/zalando/problem) library.
