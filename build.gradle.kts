@@ -1,12 +1,13 @@
 plugins {
     kotlin("jvm") version "1.3.41"
+    id("org.jetbrains.dokka") version "0.9.18"
     id("io.gitlab.arturbosch.detekt") version "1.0.0-RC16"
     `maven-publish`
     signing
 }
 
 group = "com.tyntec"
-version = "0.2"
+version = "0.3"
 
 val ktorVersion = "1.2.2"
 val jacksonVersion = "2.9.9"
@@ -25,8 +26,8 @@ repositories {
 }
 
 dependencies {
-    api(ktor("jackson"))
-    api(ktor("gson"))
+    implementation(ktor("jackson"))
+    implementation(ktor("gson"))
     implementation(kotlin("stdlib-jdk8"))
     
     api(ktorServer("core"))
@@ -56,15 +57,23 @@ fun DependencyHandler.junit(module: String, version: String = junitVersion): Any
 
 
 tasks.register<Jar>("sourcesJar") {
+    dependsOn(JavaPlugin.CLASSES_TASK_NAME)
     from(sourceSets.main.get().allSource)
     archiveClassifier.set("sources")
 }
+
+tasks.register<Jar>("javadocJar") {
+    dependsOn("dokka")
+    from(tasks["dokka"])
+    archiveClassifier.set("javadoc")
+}
+
 publishing {
     publications {
         create<MavenPublication>("mavenJava") {
             from(components["kotlin"])
             artifact(tasks["sourcesJar"])
-            //artifact(tasks["javadocJar"])
+            artifact(tasks["javadocJar"])
             versionMapping {
                 usage("java-api") {
                     fromResolutionOf("runtimeClasspath")
@@ -99,11 +108,9 @@ publishing {
     }
     repositories {
         maven {
-            // change URLs to point to your repos, e.g. http://my.org/repo
             val releasesRepoUrl = uri("https://oss.sonatype.org/service/local/staging/deploy/maven2/")
             val snapshotsRepoUrl = uri("https://oss.sonatype.org/content/repositories/snapshots/")
             url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
-            println(url)
             credentials {
                 username = ossUsername
                 password = ossPassword
