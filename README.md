@@ -7,7 +7,7 @@ It is inspired by Zalando's [Problem](https://github.com/zalando/problem) librar
 
 ### Dependency
 
-    com.tyntec:ktor-problem:$ktorProblemVersion 
+    com.tyntec:ktor-problem:0.3
 
 ### Installation 
 
