@@ -27,8 +27,6 @@ class GsonExclusionStrategy : ExclusionStrategy {
     override fun shouldSkipClass(clazz: Class<*>?): Boolean = false
 
     override fun shouldSkipField(f: FieldAttributes?): Boolean  {
-        println(f?.name)
-        println(f?.annotations)
         return f?.getAnnotation(Exclude::class.java) != null
     }
 

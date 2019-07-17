@@ -14,24 +14,20 @@
  *    limitations under the License.
  */
 
-package com.tyntec.ktor.problem.jackson
+package com.tyntec.ktor.problem.gson
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.tyntec.ktor.problem.Converter
-import com.tyntec.ktor.problem.Problem
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.tyntec.ktor.problem.ProblemConverter
 import com.tyntec.ktor.problem.Problems
 
-class JacksonConverter(private val mapper: ObjectMapper) : Converter {
-    override fun convert(problem: Any): String  = mapper.writeValueAsString(problem)
+class GsonProblemConverter(private val gson: Gson) :ProblemConverter {
+    override fun convert(problem: Any): String = gson.toJson(problem)
 }
 
-fun Problems.Configuration.jackson(block: ObjectMapper.() -> Unit) {
-    val mapper = jacksonObjectMapper()
-    mapper.apply {
-        addMixIn(Problem::class.java, ProblemMixin::class.java)
-    }
-    mapper.apply(block)
-
-    converter = JacksonConverter(mapper)
+fun Problems.Configuration.gson(block: GsonBuilder.() -> Unit = {}) {
+    val builder = GsonBuilder()
+    builder.apply(block)
+    builder.setExclusionStrategies(GsonExclusionStrategy())
+    problemConverter = GsonProblemConverter(builder.create())
 }

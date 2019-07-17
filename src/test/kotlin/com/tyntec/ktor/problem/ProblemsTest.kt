@@ -185,6 +185,32 @@ class ProblemsShould {
     }
 
     @Test
+    internal fun `respond with a 404 problem on unknown paths`() = withTestApplication{
+        application.install(Problems) {
+            jackson {}
+        }
+
+        application.routing {
+            get("/error") {
+                throw IllegalArgumentException()
+            }
+        }
+
+        handleRequest(HttpMethod.Get, "/i-do-no-exist") {
+
+        }.response.let {response ->
+
+            val content = objectMapper.readTree(response.content)
+
+            assertThat(response.status()).isEqualTo(HttpStatusCode.NotFound)
+            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+            assertThat(content.get("instance").textValue()).isEqualTo("/i-do-no-exist")
+            assertThat(content.get("status").intValue()).isEqualTo(404)
+            assertThat(content.get("title").textValue()).isEqualTo("Not Found")
+        }
+    }
+
+    @Test
     internal fun `use gson`() = withTestApplication{
         application.install(Problems) {
             gson{}
@@ -209,6 +235,42 @@ class ProblemsShould {
             assertThat(content.get("status").intValue()).isEqualTo(500)
             assertThat(content.get("title").textValue()).isEqualTo("Internal Server Error")
         }
+    }
+
+    @Test
+    internal fun `use custom problem converter`() = withTestApplication{
+        application.install(Problems) {
+            converter(TestProblemConverter())
+        }
+
+        application.routing {
+            get("/error") {
+                throw IllegalArgumentException()
+            }
+        }
+
+        handleRequest(HttpMethod.Get, "/error") {
+
+        }.response.let {response ->
+
+            val content = objectMapper.readTree(response.content)
+            println(response.content)
+
+            assertThat(response.status()).isEqualTo(HttpStatusCode.InternalServerError)
+            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+            assertThat(content.get("my_title").textValue()).isEqualTo("is testie")
+        }
+    }
+
+}
+
+class TestProblemConverter : ProblemConverter {
+    override fun convert(problem: Any): String {
+        return """
+            {
+              "my_title" : "is testie"
+            }
+        """.trimIndent()
     }
 
 }

@@ -15,7 +15,6 @@
  */
 package com.tyntec.ktor.problem
 
-import com.tyntec.ktor.problem.gson.Exclude
 import io.ktor.application.ApplicationCall
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.ApplicationFeature
@@ -32,15 +31,18 @@ private val problemContentType = ContentType("application", "problem+json")
 class Problems(configuration: Configuration) {
     private val exceptions = configuration.exceptions
     private val default = configuration.default
-    private val converter = configuration.converter
+    private val converter = configuration.problemConverter
+    private val notFound = configuration.notFound
 
     class Configuration {
 
-        internal var converter : Converter = object : Converter {
+        private class DefaultProblemConverter : ProblemConverter {
             override fun convert(problem: Any): String {
                 throw NoConverterConfiguredException()
             }
         }
+
+        internal var problemConverter: ProblemConverter = DefaultProblemConverter()
 
         internal val exceptions = mutableMapOf<Class<*>, Problem.(ProblemContext<Throwable>) -> Unit>()
 
@@ -49,9 +51,20 @@ class Problems(configuration: Configuration) {
             statusCode = HttpStatusCode.InternalServerError
         }
 
+        internal var notFound: Problem.(ProblemContext<Throwable>) -> Unit = { ctx ->
+            instance = ctx.call.request.path()
+            statusCode = HttpStatusCode.NotFound
+        }
+
+
         fun default(handler: Problem.(ProblemContext<Throwable>) -> Unit) {
             @Suppress("UNCHECKED_CAST")
             default = handler
+        }
+
+        fun notFound(handler: Problem.(ProblemContext<Throwable>) -> Unit) {
+            @Suppress("UNCHECKED_CAST")
+            notFound = handler
         }
 
         inline fun <reified T : Throwable> exception(
@@ -64,6 +77,10 @@ class Problems(configuration: Configuration) {
         ) {
             @Suppress("UNCHECKED_CAST")
             exceptions.put(klass, handler as Problem.(ProblemContext<Throwable>) -> Unit)
+        }
+
+        fun converter(problemConverter: ProblemConverter) {
+            this.problemConverter = problemConverter
         }
     }
 
@@ -83,6 +100,9 @@ class Problems(configuration: Configuration) {
                     feature.intercept(call, e)
                 }
             }
+            pipeline.intercept(ApplicationCallPipeline.Fallback) {
+                feature.notFound(call)
+            }
             return feature
         }
     }
@@ -96,17 +116,31 @@ class Problems(configuration: Configuration) {
                 }
             }
         }
+        finalizeProblem(problem)
+        call.application.attributes.put(key, this@Problems)
+        call.respond(problem.statusCode, TextContent(converter.convert(problem), problemContentType))
+    }
 
+    private fun finalizeProblem(problem: Problem) {
         with(problem) {
-            if(status == null) {
+            if (status == null) {
                 status = statusCode.value
             }
-            if(title.isNullOrEmpty()) {
+            if (title.isNullOrEmpty()) {
                 title = statusCode.description
             }
         }
-        val text = converter.convert(problem)
-        call.respond(problem.statusCode, TextContent(text, problemContentType))
+    }
+
+    private suspend fun notFound(call: ApplicationCall) {
+        if (!call.application.attributes.contains(key)) {
+            val problem = DefaultProblem().apply { notFound(ProblemContext(call, Throwable())) }
+            finalizeProblem(problem)
+            call.respond(
+                HttpStatusCode.NotFound,
+                TextContent(converter.convert(problem), ContentType.parse("application/problem+json"))
+            )
+        }
     }
 
     private fun findExceptionByClass(clazz: Class<out Throwable>): (Problem.(ProblemContext<Throwable>) -> Unit) {
@@ -118,13 +152,12 @@ class Problems(configuration: Configuration) {
 
 class NoConverterConfiguredException : Throwable()
 
-interface Converter {
-    fun convert(problem: Any) : String
+interface ProblemConverter {
+    fun convert(problem: Any): String
 }
 
 interface Problem {
     var type: String?
-    @Exclude
     var statusCode: HttpStatusCode
     var detail: String?
     var instance: String?
