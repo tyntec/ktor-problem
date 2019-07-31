@@ -15,13 +15,11 @@
  */
 package com.tyntec.ktor.problem
 
-import io.ktor.application.ApplicationCall
-import io.ktor.application.ApplicationCallPipeline
-import io.ktor.application.ApplicationFeature
-import io.ktor.application.call
+import io.ktor.application.*
 import io.ktor.content.TextContent
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.request.httpMethod
 import io.ktor.request.path
 import io.ktor.response.respond
 import io.ktor.util.AttributeKey
@@ -33,6 +31,7 @@ class Problems(configuration: Configuration) {
     private val default = configuration.default
     private val converter = configuration.problemConverter
     private val notFound = configuration.notFound
+    private val logException = configuration.logException
 
     class Configuration {
 
@@ -45,6 +44,8 @@ class Problems(configuration: Configuration) {
         internal var problemConverter: ProblemConverter = DefaultProblemConverter()
 
         internal val exceptions = mutableMapOf<Class<*>, Problem.(ProblemContext<Throwable>) -> Unit>()
+
+        var logException = true
 
         internal var default: Problem.(ProblemContext<Throwable>) -> Unit = { ctx ->
             instance = ctx.call.request.path()
@@ -108,6 +109,10 @@ class Problems(configuration: Configuration) {
     }
 
     private suspend fun intercept(call: ApplicationCall, throwable: Throwable) {
+        if (logException) {
+            call.application.log.warn("While executing {} {} this exception occurred", call.request.httpMethod.value, call.request.path(), throwable)
+        }
+
         val problem = when (throwable) {
             is Problem -> throwable
             else -> {
@@ -133,7 +138,7 @@ class Problems(configuration: Configuration) {
     }
 
     private suspend fun notFound(call: ApplicationCall) {
-        if (!call.application.attributes.contains(key)) {
+        if (!call.application.attributes.contains(key) && call.response.status() == null) {
             val problem = DefaultProblem().apply { notFound(ProblemContext(call, Throwable())) }
             finalizeProblem(problem)
             call.respond(
