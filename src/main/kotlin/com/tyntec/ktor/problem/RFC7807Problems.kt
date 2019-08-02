@@ -19,14 +19,17 @@ import io.ktor.application.*
 import io.ktor.content.TextContent
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.request.httpMethod
 import io.ktor.request.path
+import io.ktor.response.ApplicationSendPipeline
 import io.ktor.response.respond
 import io.ktor.util.AttributeKey
+import io.ktor.util.pipeline.PipelineContext
 
 private val problemContentType = ContentType("application", "problem+json")
 
-class Problems(configuration: Configuration) {
+class RFC7807Problems(configuration: Configuration) {
     private val exceptions = configuration.exceptions
     private val default = configuration.default
     private val converter = configuration.problemConverter
@@ -85,20 +88,24 @@ class Problems(configuration: Configuration) {
         }
     }
 
-    companion object Feature : ApplicationFeature<ApplicationCallPipeline, Configuration, Problems> {
-        override val key = AttributeKey<Problems>("Problems")
+    companion object Feature : ApplicationFeature<ApplicationCallPipeline, Configuration, RFC7807Problems> {
+        override val key = AttributeKey<RFC7807Problems>("Problems")
 
-        override fun install(pipeline: ApplicationCallPipeline, configure: Configuration.() -> Unit): Problems {
+        override fun install(pipeline: ApplicationCallPipeline, configure: Configuration.() -> Unit): RFC7807Problems {
 
             val configuration = Configuration().apply(configure)
 
-            val feature = Problems(configuration)
+            val feature = RFC7807Problems(configuration)
+
+            pipeline.sendPipeline.intercept(ApplicationSendPipeline.After) { message ->
+                feature.interceptResponse(this, message)
+            }
 
             pipeline.intercept(ApplicationCallPipeline.Monitoring) {
                 try {
                     proceed()
                 } catch (e: Throwable) {
-                    feature.intercept(call, e)
+                    feature.interceptExceptions(this, call, e)
                 }
             }
             pipeline.intercept(ApplicationCallPipeline.Fallback) {
@@ -108,7 +115,26 @@ class Problems(configuration: Configuration) {
         }
     }
 
-    private suspend fun intercept(call: ApplicationCall, throwable: Throwable) {
+    private suspend fun interceptResponse(context: PipelineContext<*, ApplicationCall>, message: Any) {
+        val call = context.call
+        if (call.attributes.contains(RFC7807Problems.key)) return
+
+        val status = when (message) {
+            is OutgoingContent -> message.status
+            is HttpStatusCode -> message
+            else -> null
+        }
+
+        if (status.isSetAndError()) {
+            val problem = DefaultProblem(statusCode = status!!, instance = call.request.path())
+            finalizeProblem(problem)
+            call.application.attributes.put(key, this@RFC7807Problems)
+            call.respond(problem.statusCode, TextContent(converter.convert(problem), problemContentType))
+            finishIfResponseSent(context)
+        }
+    }
+
+    private suspend fun interceptExceptions(context: PipelineContext<*, ApplicationCall>, call: ApplicationCall, throwable: Throwable) {
         if (logException) {
             call.application.log.warn("While executing {} {} this exception occurred", call.request.httpMethod.value, call.request.path(), throwable)
         }
@@ -122,8 +148,15 @@ class Problems(configuration: Configuration) {
             }
         }
         finalizeProblem(problem)
-        call.application.attributes.put(key, this@Problems)
+        call.application.attributes.put(key, this@RFC7807Problems)
         call.respond(problem.statusCode, TextContent(converter.convert(problem), problemContentType))
+        finishIfResponseSent(context)
+    }
+
+    private fun finishIfResponseSent(context: PipelineContext<*, ApplicationCall>) {
+        if (context.call.response.status() != null) {
+            context.finish()
+        }
     }
 
     private fun finalizeProblem(problem: Problem) {
@@ -155,6 +188,10 @@ class Problems(configuration: Configuration) {
 
 }
 
+fun HttpStatusCode?.isSetAndError() : Boolean {
+    return !(this == null || this.value < 400)
+}
+
 class NoConverterConfiguredException : Throwable()
 
 interface ProblemConverter {
@@ -179,5 +216,9 @@ class DefaultProblem(
     override var additionalDetails: Map<String, Any> = emptyMap(),
     override var status: Int? = null,
     override var title: String? = null
-) : Problem
+) : Problem {
+    override fun toString(): String {
+        return "DefaultProblem(type=$type, statusCode=$statusCode, detail=$detail, instance=$instance, additionalDetails=$additionalDetails, status=$status, title=$title)"
+    }
+}
 

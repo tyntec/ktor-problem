@@ -19,13 +19,13 @@ package com.tyntec.ktor.problem.gson
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.tyntec.ktor.problem.ProblemConverter
-import com.tyntec.ktor.problem.Problems
+import com.tyntec.ktor.problem.RFC7807Problems
 
 class GsonProblemConverter(private val gson: Gson) :ProblemConverter {
     override fun convert(problem: Any): String = gson.toJson(problem)
 }
 
-fun Problems.Configuration.gson(block: GsonBuilder.() -> Unit = {}) {
+fun RFC7807Problems.Configuration.gson(block: GsonBuilder.() -> Unit = {}) {
     val builder = GsonBuilder()
     builder.apply(block)
     builder.setExclusionStrategies(GsonExclusionStrategy())

@@ -20,13 +20,13 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.tyntec.ktor.problem.ProblemConverter
 import com.tyntec.ktor.problem.Problem
-import com.tyntec.ktor.problem.Problems
+import com.tyntec.ktor.problem.RFC7807Problems
 
 class JacksonProblemConverter(private val mapper: ObjectMapper) : ProblemConverter {
     override fun convert(problem: Any): String  = mapper.writeValueAsString(problem)
 }
 
-fun Problems.Configuration.jackson(block: ObjectMapper.() -> Unit) {
+fun RFC7807Problems.Configuration.jackson(block: ObjectMapper.() -> Unit) {
     val mapper = jacksonObjectMapper()
     mapper.apply {
         addMixIn(Problem::class.java, ProblemMixin::class.java)
