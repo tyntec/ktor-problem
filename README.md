@@ -84,7 +84,7 @@ In order to provider your custom json problemConverter you need to implement the
 
 Afterwards enable it via 
 
-    install(Problems) {
+    install(RC7807Problems) {
       converter{MyConverter()}      
     }
  
