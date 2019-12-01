@@ -76,6 +76,45 @@ Like in this example
 The default behavior is configured by the ``default`` configuration method.
 It has the access to the same ``context`` object as the exception specific handling.
 
+## Throwing business exceptions
+
+Provide configurations that handle all exceptions can be cumbersome and decrease 
+the clarity of the configuration.
+
+Ktor Problem admits this by defining the interface `Problem` and the super class `ThrowableProblem`.
+
+The latter is a convenience implementation of `Problem` interface.
+
+When throwing an exception that implements the interface or extends the `ThrowableProblem` class, Ktor Problem detects 
+this and takes the properties from the implementing class to generate the error response.
+
+**Note** : Jackson is currently the only converter which suppress the publication of Throwable details, like stacktrace etc. pp. .
+Support for GSon is planned but not finished.
+
+### Example
+
+This business exception
+
+    class TestBusinessException(
+        var businessDetail : String
+    ) : ThrowableProblem(
+        type = "Any type",
+        statusCode = HttpStatusCode.BadRequest,
+        detail = "DefaultProblem to be thrown",
+        title = "Awesome title"
+    )
+
+is translated to 
+
+    { 
+      "businessDetail":"a test detail",
+      "type":"Any type",
+      "detail":"DefaultProblem to be thrown",
+      "instance":null,
+      "title":"Awesome title",
+      "status":400
+    }
+
 ## Advanced usage
 
 ### Custom json problemConverter
