@@ -141,7 +141,7 @@ class RFC7807ProblemsShould {
 
         application.routing {
             get("/customizedError") {
-                throw ProblemToBeThrown()
+                throw TestBusinessException(businessDetail = "a test detail")
             }
         }
 
@@ -155,6 +155,7 @@ class RFC7807ProblemsShould {
             assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
             assertThat(content.get("status").intValue()).isEqualTo(400)
             assertThat(content.get("title").textValue()).isEqualTo("Awesome title")
+            assertThat(content.get("businessDetail").textValue()).isEqualTo("a test detail")
         }
     }
 
@@ -326,12 +327,11 @@ class TestProblemConverter : ProblemConverter {
 
 }
 
-class ProblemToBeThrown(
-    override var type: String? = "Any type",
-    override var statusCode: HttpStatusCode = HttpStatusCode.BadRequest,
-    override var detail: String? = "DefaultProblem to be thrown",
-    override var instance: String? = null,
-    override var additionalDetails: Map<String, Any> = emptyMap(),
-    override var title: String? = "Awesome title",
-    override var status: Int? = null
-) : Problem, Throwable()
+class TestBusinessException(
+    var businessDetail : String
+) : ThrowableProblem(
+    type = "Any type",
+    statusCode = HttpStatusCode.BadRequest,
+    detail = "DefaultProblem to be thrown",
+    title = "Awesome title"
+)

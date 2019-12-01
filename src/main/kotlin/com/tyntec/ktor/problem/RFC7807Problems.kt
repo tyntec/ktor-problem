@@ -222,3 +222,12 @@ class DefaultProblem(
     }
 }
 
+open class ThrowableProblem(
+    override var type: String? = null,
+    override var statusCode: HttpStatusCode = HttpStatusCode.InternalServerError,
+    override var detail: String? = null,
+    override var instance: String? = null,
+    override var additionalDetails: Map<String, Any> = emptyMap(),
+    override var title: String? = null,
+    override var status: Int? = null
+) : Problem, Throwable()
