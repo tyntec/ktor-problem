@@ -18,6 +18,9 @@ package com.tyntec.ktor.problem
 
 import io.ktor.application.ApplicationCall
 
+/**
+ * Container class available when exception based configuration is used.
+ */
 data class ProblemContext<T : Throwable>(
     val call: ApplicationCall,
     val throwable: T
