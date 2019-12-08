@@ -24,6 +24,7 @@ import com.tyntec.ktor.problem.gson.gson
 import com.tyntec.ktor.problem.jackson.jackson
 import io.ktor.application.call
 import io.ktor.application.install
+import io.ktor.content.TextContent
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -236,6 +237,28 @@ class RFC7807ProblemsShould {
             assertThat(content.get("instance").textValue()).isEqualTo("/error")
             assertThat(content.get("status").intValue()).isEqualTo(405)
             assertThat(content.get("title").textValue()).isEqualTo("Method Not Allowed")
+        }
+    }
+
+    @Test
+    internal fun `respond with unmodified response when enableAutomaticResponseConversion is disabled`() = withTestApplication{
+        application.install(RFC7807Problems) {
+            jackson {}
+            enableAutomaticResponseConversion = false
+        }
+
+        application.routing {
+            get("/error") {
+                call.respond(TextContent("test", ContentType.parse("application/my-problem") , HttpStatusCode.MethodNotAllowed))
+            }
+        }
+
+        handleRequest(HttpMethod.Get, "/error") {
+
+        }.response.let {response ->
+            assertThat(response.content).isEqualTo("test")
+            assertThat(response.status()).isEqualTo(HttpStatusCode.MethodNotAllowed)
+            assertThat(response.contentType()).isEqualTo(ContentType("application", "my-problem"))
         }
     }
 

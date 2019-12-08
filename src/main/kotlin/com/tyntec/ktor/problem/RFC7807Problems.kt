@@ -15,6 +15,7 @@
  */
 package com.tyntec.ktor.problem
 
+import com.tyntec.ktor.problem.ExceptionLogLevel.*
 import io.ktor.application.*
 import io.ktor.content.TextContent
 import io.ktor.http.ContentType
@@ -29,12 +30,19 @@ import io.ktor.util.pipeline.PipelineContext
 
 private val problemContentType = ContentType("application", "problem+json")
 
+enum class ExceptionLogLevel {
+    OFF,
+    SHORT,
+    FULL
+}
+
 class RFC7807Problems(configuration: Configuration) {
     private val exceptions = configuration.exceptions
     private val default = configuration.default
     private val converter = configuration.problemConverter
     private val notFound = configuration.notFound
-    private val logException = configuration.logException
+    private val enableAutomaticResponseConversion = configuration.enableAutomaticResponseConversion
+    private val exceptionLogging = configuration.exceptionLogging
 
     class Configuration {
 
@@ -48,7 +56,9 @@ class RFC7807Problems(configuration: Configuration) {
 
         internal val exceptions = mutableMapOf<Class<*>, Problem.(ProblemContext<Throwable>) -> Unit>()
 
-        var logException = true
+
+        var exceptionLogging = FULL
+        var enableAutomaticResponseConversion = true
 
         internal var default: Problem.(ProblemContext<Throwable>) -> Unit = { ctx ->
             instance = ctx.call.request.path()
@@ -97,9 +107,10 @@ class RFC7807Problems(configuration: Configuration) {
 
             val feature = RFC7807Problems(configuration)
 
-            pipeline.sendPipeline.intercept(ApplicationSendPipeline.After) { message ->
-                feature.interceptResponse(this, message)
-            }
+            if (configuration.enableAutomaticResponseConversion)
+                pipeline.sendPipeline.intercept(ApplicationSendPipeline.After) { message ->
+                    feature.interceptResponse(this, message)
+                }
 
             pipeline.intercept(ApplicationCallPipeline.Monitoring) {
                 try {
@@ -134,9 +145,27 @@ class RFC7807Problems(configuration: Configuration) {
         }
     }
 
-    private suspend fun interceptExceptions(context: PipelineContext<*, ApplicationCall>, call: ApplicationCall, throwable: Throwable) {
-        if (logException) {
-            call.application.log.warn("While executing {} {} this exception occurred", call.request.httpMethod.value, call.request.path(), throwable)
+    private suspend fun interceptExceptions(
+        context: PipelineContext<*, ApplicationCall>,
+        call: ApplicationCall,
+        throwable: Throwable
+    ) {
+        val logger = call.application.log
+        when (exceptionLogging) {
+            FULL -> logger.warn(
+                "While executing {} {} this exception occurred",
+                call.request.httpMethod.value,
+                call.request.path(),
+                throwable
+            )
+            SHORT -> logger.warn(
+                "While executing {} {} this exception occurred",
+                call.request.httpMethod.value,
+                call.request.path(),
+                throwable.message
+            )
+            OFF -> {
+            }
         }
 
         val problem = when (throwable) {
@@ -188,7 +217,7 @@ class RFC7807Problems(configuration: Configuration) {
 
 }
 
-fun HttpStatusCode?.isSetAndError() : Boolean {
+fun HttpStatusCode?.isSetAndError(): Boolean {
     return !(this == null || this.value < 400)
 }
 
