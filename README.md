@@ -76,6 +76,21 @@ Like in this example
 The default behavior is configured by the ``default`` configuration method.
 It has the access to the same ``context`` object as the exception specific handling.
 
+#### Control logging
+
+Logging of caught exceptions can be controlled via ``exceptionLogging``. It supports at the moment
+
+- OFF - logging is completly turned off
+- SHORT - Only the http method, path and exception message is logged
+- FULL - Http method, path and the whole stack trace is logged
+
+#### Control automated response mapping
+
+The library intercepts in the default setting non successful http status codes and
+put's them into the problem structure.
+
+This behavior can be turned of by the toggle ``enableAutomaticResponseConversion``. 
+
 ## Throwing business exceptions
 
 Provide configurations that handle all exceptions can be cumbersome and decrease 

@@ -107,7 +107,7 @@ class RFC7807Problems(configuration: Configuration) {
 
             val feature = RFC7807Problems(configuration)
 
-            if (configuration.enableAutomaticResponseConversion)
+            if (feature.enableAutomaticResponseConversion)
                 pipeline.sendPipeline.intercept(ApplicationSendPipeline.After) { message ->
                     feature.interceptResponse(this, message)
                 }
