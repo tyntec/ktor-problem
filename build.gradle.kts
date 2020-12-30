@@ -10,7 +10,7 @@ group = "com.tyntec"
 version = "0.7"
 
 val ktorVersion = "1.5.0"
-val jacksonVersion = "2.9.9"
+val jacksonVersion = "2.12.0"
 val junitVersion = "5.4.2"
 val ossUsername: String? by project
 val ossPassword: String? by project
