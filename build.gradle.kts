@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.3.41"
+    kotlin("jvm") version "1.4.21"
     id("org.jetbrains.dokka") version "0.9.18"
     id("io.gitlab.arturbosch.detekt") version "1.0.0-RC16"
     `maven-publish`
@@ -9,7 +9,7 @@ plugins {
 group = "com.tyntec"
 version = "0.7"
 
-val ktorVersion = "1.2.2"
+val ktorVersion = "1.5.0"
 val jacksonVersion = "2.9.9"
 val junitVersion = "5.4.2"
 val ossUsername: String? by project
