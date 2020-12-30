@@ -1,7 +1,7 @@
 plugins {
     kotlin("jvm") version "1.4.21"
     id("org.jetbrains.dokka") version "0.9.18"
-    id("io.gitlab.arturbosch.detekt") version "1.0.0-RC16"
+    id("io.gitlab.arturbosch.detekt") version "1.15.0"
     `maven-publish`
     signing
 }
@@ -17,7 +17,6 @@ val ossPassword: String? by project
 
 detekt {
     input = files("src/main/kotlin")
-    filters  = ".*/resources/.*,.*/build/.*"
     config = files("config/detekt/config.yml")
 }
 
