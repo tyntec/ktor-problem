@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.tyntec"
-version = "0.7"
+version = "0.8"
 
 val ktorVersion = "1.5.0"
 val jacksonVersion = "2.12.0"
