@@ -98,7 +98,7 @@ class RFC7807Problems(configuration: Configuration) {
         }
     }
 
-    companion object Feature : BaseApplicationPlugin<ApplicationCallPipeline, Configuration, RFC7807Problems> {
+    companion object Plugin : BaseApplicationPlugin<ApplicationCallPipeline, Configuration, RFC7807Problems> {
         override val key = AttributeKey<RFC7807Problems>("Problems")
 
         override fun install(pipeline: ApplicationCallPipeline, configure: Configuration.() -> Unit): RFC7807Problems {
