@@ -16,15 +16,15 @@
 package com.tyntec.ktor.problem
 
 import com.tyntec.ktor.problem.ExceptionLogLevel.*
-import io.ktor.application.*
+
 import io.ktor.content.TextContent
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.OutgoingContent
-import io.ktor.request.httpMethod
-import io.ktor.request.path
-import io.ktor.response.ApplicationSendPipeline
-import io.ktor.response.respond
+import io.ktor.server.application.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+
 import io.ktor.util.AttributeKey
 import io.ktor.util.pipeline.PipelineContext
 
@@ -98,31 +98,31 @@ class RFC7807Problems(configuration: Configuration) {
         }
     }
 
-    companion object Feature : ApplicationFeature<ApplicationCallPipeline, Configuration, RFC7807Problems> {
+    companion object Feature : BaseApplicationPlugin<ApplicationCallPipeline, Configuration, RFC7807Problems> {
         override val key = AttributeKey<RFC7807Problems>("Problems")
 
         override fun install(pipeline: ApplicationCallPipeline, configure: Configuration.() -> Unit): RFC7807Problems {
 
             val configuration = Configuration().apply(configure)
 
-            val feature = RFC7807Problems(configuration)
+            val plugin = RFC7807Problems(configuration)
 
-            if (feature.enableAutomaticResponseConversion)
+            if (plugin.enableAutomaticResponseConversion)
                 pipeline.sendPipeline.intercept(ApplicationSendPipeline.After) { message ->
-                    feature.interceptResponse(this, message)
+                    plugin.interceptResponse(this, message)
                 }
 
             pipeline.intercept(ApplicationCallPipeline.Monitoring) {
                 try {
                     proceed()
                 } catch (e: Throwable) {
-                    feature.interceptExceptions(this, call, e)
+                    plugin.interceptExceptions(this, call, e)
                 }
             }
             pipeline.intercept(ApplicationCallPipeline.Fallback) {
-                feature.notFound(call)
+                plugin.notFound(call)
             }
-            return feature
+            return plugin
         }
     }
 

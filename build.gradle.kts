@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.4.21"
+    kotlin("jvm") version "1.8.0"
     id("org.jetbrains.dokka") version "0.9.18"
     id("io.gitlab.arturbosch.detekt") version "1.15.0"
     `maven-publish`
@@ -9,7 +9,7 @@ plugins {
 group = "com.tyntec"
 version = "0.8"
 
-val ktorVersion = "1.5.0"
+val ktorVersion = "2.2.2"
 val jacksonVersion = "2.12.0"
 val junitVersion = "5.4.2"
 val ossUsername: String? by project
@@ -21,20 +21,21 @@ detekt {
 }
 
 repositories {
-    jcenter()
+    mavenCentral()
 }
 
 dependencies {
-    implementation(ktor("jackson"))
-    implementation(ktor("gson"))
+    implementation(ktor("serialization-jackson"))
+    implementation(ktor("serialization-gson"))
+    implementation(ktor("client-content-negotiation"))
     implementation(kotlin("stdlib-jdk8"))
-    
+
     api(ktorServer("core"))
     testImplementation(ktorServer("tests"))
     testImplementation("com.willowtreeapps.assertk:assertk-jvm:0.17")
     testImplementation(junit("api"))
     testImplementation(junit("params"))
-    testRuntime(junit("engine", "5.3.2"))
+    testImplementation(junit("engine", "5.3.2"))
 }
 
 fun DependencyHandler.ktor(module: String, version: String = ktorVersion): Any =

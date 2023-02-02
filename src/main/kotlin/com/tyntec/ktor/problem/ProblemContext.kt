@@ -16,7 +16,7 @@
 
 package com.tyntec.ktor.problem
 
-import io.ktor.application.ApplicationCall
+import io.ktor.server.application.ApplicationCall
 
 /**
  * Container class available when exception based configuration is used.

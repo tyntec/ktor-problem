@@ -22,19 +22,15 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.PropertyNamingStrategy
 import com.tyntec.ktor.problem.gson.gson
 import com.tyntec.ktor.problem.jackson.jackson
-import io.ktor.application.call
-import io.ktor.application.install
-import io.ktor.content.TextContent
-import io.ktor.http.ContentType
-import io.ktor.http.HttpMethod
-import io.ktor.http.HttpStatusCode
-import io.ktor.request.path
-import io.ktor.response.respond
-import io.ktor.routing.get
-import io.ktor.routing.routing
-import io.ktor.server.testing.contentType
-import io.ktor.server.testing.handleRequest
-import io.ktor.server.testing.withTestApplication
+import io.ktor.client.call.*
+import io.ktor.client.request.*
+import io.ktor.content.*
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import io.ktor.server.testing.*
 import org.junit.jupiter.api.Test
 
 class RFC7807ProblemsShould {
@@ -42,34 +38,30 @@ class RFC7807ProblemsShould {
     val objectMapper = ObjectMapper().findAndRegisterModules()
 
     @Test
-    internal fun `respond with internal server error by default`() = withTestApplication{
-        application.install(RFC7807Problems) {
+    internal fun `respond with internal server error by default`() = testApplication {
+        install(RFC7807Problems) {
             jackson {  }
         }
 
-        application.routing {
+        routing {
             get("/error") {
                 throw IllegalArgumentException()
             }
         }
 
-        handleRequest(HttpMethod.Get, "/error") {
+        val response = client.get("/error")
+        val content = objectMapper.readTree(response.body<String>())
 
-        }.response.let {response ->
-
-            val content = objectMapper.readTree(response.content)
-
-            assertThat(response.status()).isEqualTo(HttpStatusCode.InternalServerError)
-            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
-            assertThat(content.get("instance").textValue()).isEqualTo("/error")
-            assertThat(content.get("status").intValue()).isEqualTo(500)
-            assertThat(content.get("title").textValue()).isEqualTo("Internal Server Error")
-        }
+        assertThat(response.status).isEqualTo(HttpStatusCode.InternalServerError)
+        assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+        assertThat(content.get("instance").textValue()).isEqualTo("/error")
+        assertThat(content.get("status").intValue()).isEqualTo(500)
+        assertThat(content.get("title").textValue()).isEqualTo("Internal Server Error")
     }
 
     @Test
-    internal fun `respond with configured error object`() = withTestApplication{
-        application.install(RFC7807Problems) {
+    internal fun `respond with configured error object`() = testApplication {
+        install(RFC7807Problems) {
             exception<IllegalAccessError> { ctx ->
                 statusCode = HttpStatusCode.MethodNotAllowed
                 detail = "You're not allowed to trigger this action"
@@ -79,7 +71,7 @@ class RFC7807ProblemsShould {
             jackson {  }
         }
 
-        application.routing {
+        routing {
             get("/error") {
                 throw IllegalArgumentException()
             }
@@ -88,25 +80,21 @@ class RFC7807ProblemsShould {
             }
         }
 
-        handleRequest(HttpMethod.Get, "/definedError") {
+        val response = client.get("/definedError")
+        val content = objectMapper.readTree(response.body<String>())
 
-        }.response.let {response ->
-
-            val content = objectMapper.readTree(response.content)
-
-            assertThat(response.status()).isEqualTo(HttpStatusCode.MethodNotAllowed)
-            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
-            assertThat(content.get("instance").textValue()).isEqualTo("bad resource")
-            assertThat(content.get("status").intValue()).isEqualTo(405)
-            assertThat(content.get("title").textValue()).isEqualTo("Method Not Allowed")
-            assertThat(content.get("type").textValue()).isEqualTo("Test-DefaultProblem")
-            assertThat(content.get("detail").textValue()).isEqualTo("You're not allowed to trigger this action")
-        }
+        assertThat(response.status).isEqualTo(HttpStatusCode.MethodNotAllowed)
+        assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+        assertThat(content.get("instance").textValue()).isEqualTo("bad resource")
+        assertThat(content.get("status").intValue()).isEqualTo(405)
+        assertThat(content.get("title").textValue()).isEqualTo("Method Not Allowed")
+        assertThat(content.get("type").textValue()).isEqualTo("Test-DefaultProblem")
+        assertThat(content.get("detail").textValue()).isEqualTo("You're not allowed to trigger this action")
     }
 
     @Test
-    internal fun `respond with customized default`() = withTestApplication{
-        application.install(RFC7807Problems) {
+    internal fun `respond with customized default`() = testApplication {
+        install(RFC7807Problems) {
             default {ctx ->
                 statusCode = HttpStatusCode.PaymentRequired
                 instance = ctx.call.request.path()
@@ -114,229 +102,205 @@ class RFC7807ProblemsShould {
             jackson {  }
         }
 
-        application.routing {
+        routing {
             get("/customizedError") {
                 throw IllegalStateException()
             }
         }
 
-        handleRequest(HttpMethod.Get, "/customizedError") {
+        val response = client.get("/customizedError")
 
-        }.response.let {response ->
+        val content = objectMapper.readTree(response.body<String>())
 
-            val content = objectMapper.readTree(response.content)
-
-            assertThat(response.status()).isEqualTo(HttpStatusCode.PaymentRequired)
-            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
-            assertThat(content.get("instance").textValue()).isEqualTo("/customizedError")
-            assertThat(content.get("status").intValue()).isEqualTo(402)
-            assertThat(content.get("title").textValue()).isEqualTo("Payment Required")
-        }
+        assertThat(response.status).isEqualTo(HttpStatusCode.PaymentRequired)
+        assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+        assertThat(content.get("instance").textValue()).isEqualTo("/customizedError")
+        assertThat(content.get("status").intValue()).isEqualTo(402)
+        assertThat(content.get("title").textValue()).isEqualTo("Payment Required")
     }
 
     @Test
-    internal fun `respond with throwable problem implementation`() = withTestApplication{
-        application.install(RFC7807Problems) {
+    internal fun `respond with throwable problem implementation`() = testApplication {
+        install(RFC7807Problems) {
             jackson {  }
         }
 
-        application.routing {
+        routing {
             get("/customizedError") {
                 throw TestBusinessException(businessDetail = "a test detail")
             }
         }
 
-        handleRequest(HttpMethod.Get, "/customizedError") {
+        val response = client.get("/customizedError")
 
-        }.response.let {response ->
+        val content = objectMapper.readTree(response.body<String>())
 
-            val content = objectMapper.readTree(response.content)
-
-            assertThat(response.status()).isEqualTo(HttpStatusCode.BadRequest)
-            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
-            assertThat(content.get("status").intValue()).isEqualTo(400)
-            assertThat(content.get("title").textValue()).isEqualTo("Awesome title")
-            assertThat(content.get("businessDetail").textValue()).isEqualTo("a test detail")
-        }
+        assertThat(response.status).isEqualTo(HttpStatusCode.BadRequest)
+        assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+        assertThat(content.get("status").intValue()).isEqualTo(400)
+        assertThat(content.get("title").textValue()).isEqualTo("Awesome title")
+        assertThat(content.get("businessDetail").textValue()).isEqualTo("a test detail")
     }
 
     @Test
-    internal fun `use jackson override`() = withTestApplication{
-        application.install(RFC7807Problems) {
+    internal fun `use jackson override`() = testApplication {
+        install(RFC7807Problems) {
             jackson {
                 propertyNamingStrategy = PropertyNamingStrategy.UPPER_CAMEL_CASE
             }
         }
 
-        application.routing {
+        routing {
             get("/error") {
                 throw IllegalArgumentException()
             }
         }
 
-        handleRequest(HttpMethod.Get, "/error") {
+        val response = client.get("/error")
 
-        }.response.let {response ->
+        val content = objectMapper.readTree(response.body<String>())
 
-            val content = objectMapper.readTree(response.content)
-
-            assertThat(response.status()).isEqualTo(HttpStatusCode.InternalServerError)
-            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
-            assertThat(content.get("Instance").textValue()).isEqualTo("/error")
-            assertThat(content.get("Status").intValue()).isEqualTo(500)
-            assertThat(content.get("Title").textValue()).isEqualTo("Internal Server Error")
-        }
+        assertThat(response.status).isEqualTo(HttpStatusCode.InternalServerError)
+        assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+        assertThat(content.get("Instance").textValue()).isEqualTo("/error")
+        assertThat(content.get("Status").intValue()).isEqualTo(500)
+        assertThat(content.get("Title").textValue()).isEqualTo("Internal Server Error")
     }
 
     @Test
-    internal fun `respond with a 404 problem on unknown paths`() = withTestApplication{
-        application.install(RFC7807Problems) {
+    internal fun `respond with a 404 problem on unknown paths`() = testApplication {
+        install(RFC7807Problems) {
             jackson {}
         }
 
-        application.routing {
+        routing {
             get("/error") {
                 throw IllegalArgumentException()
             }
         }
 
-        handleRequest(HttpMethod.Get, "/i-do-no-exist") {
+        val response = client.get("/i-do-no-exist")
 
-        }.response.let {response ->
+        val content = objectMapper.readTree(response.body<String>())
 
-            val content = objectMapper.readTree(response.content)
-
-            assertThat(response.status()).isEqualTo(HttpStatusCode.NotFound)
-            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
-            assertThat(content.get("instance").textValue()).isEqualTo("/i-do-no-exist")
-            assertThat(content.get("status").intValue()).isEqualTo(404)
-            assertThat(content.get("title").textValue()).isEqualTo("Not Found")
-        }
+        assertThat(response.status).isEqualTo(HttpStatusCode.NotFound)
+        assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+        assertThat(content.get("instance").textValue()).isEqualTo("/i-do-no-exist")
+        assertThat(content.get("status").intValue()).isEqualTo(404)
+        assertThat(content.get("title").textValue()).isEqualTo("Not Found")
     }
 
     @Test
-    internal fun `respond with a problem matching the error response status`() = withTestApplication{
-        application.install(RFC7807Problems) {
+    internal fun `respond with a problem matching the error response status`() = testApplication {
+        install(RFC7807Problems) {
             jackson {}
         }
 
-        application.routing {
+        routing {
             get("/error") {
                 call.respond(HttpStatusCode.MethodNotAllowed)
             }
         }
 
-        handleRequest(HttpMethod.Get, "/error") {
+        val response = client.get("/error")
 
-        }.response.let {response ->
+        val content = objectMapper.readTree(response.body<String>())
 
-            val content = objectMapper.readTree(response.content)
-
-            assertThat(response.status()).isEqualTo(HttpStatusCode.MethodNotAllowed)
-            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
-            assertThat(content.get("instance").textValue()).isEqualTo("/error")
-            assertThat(content.get("status").intValue()).isEqualTo(405)
-            assertThat(content.get("title").textValue()).isEqualTo("Method Not Allowed")
-        }
+        assertThat(response.status).isEqualTo(HttpStatusCode.MethodNotAllowed)
+        assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+        assertThat(content.get("instance").textValue()).isEqualTo("/error")
+        assertThat(content.get("status").intValue()).isEqualTo(405)
+        assertThat(content.get("title").textValue()).isEqualTo("Method Not Allowed")
     }
 
     @Test
-    internal fun `respond with unmodified response when enableAutomaticResponseConversion is disabled`() = withTestApplication{
-        application.install(RFC7807Problems) {
+    internal fun `respond with unmodified response when enableAutomaticResponseConversion is disabled`() = testApplication {
+        install(RFC7807Problems) {
             jackson {}
             enableAutomaticResponseConversion = false
         }
 
-        application.routing {
+        routing {
             get("/error") {
                 call.respond(TextContent("test", ContentType.parse("application/my-problem") , HttpStatusCode.MethodNotAllowed))
             }
         }
 
-        handleRequest(HttpMethod.Get, "/error") {
+        val response = client.get("/error")
+        assertThat(response.body<String>()).isEqualTo("test")
+        assertThat(response.status).isEqualTo(HttpStatusCode.MethodNotAllowed)
+        assertThat(response.contentType()).isEqualTo(ContentType("application", "my-problem"))
 
-        }.response.let {response ->
-            assertThat(response.content).isEqualTo("test")
-            assertThat(response.status()).isEqualTo(HttpStatusCode.MethodNotAllowed)
-            assertThat(response.contentType()).isEqualTo(ContentType("application", "my-problem"))
-        }
     }
 
     @Test
-    internal fun `ignore all non error response codes`() = withTestApplication{
-        application.install(RFC7807Problems) {
+    internal fun `ignore all non error response codes`() = testApplication {
+        install(RFC7807Problems) {
             jackson {}
         }
 
-        application.routing {
+        routing {
             get("/redirect") {
                 call.respond(HttpStatusCode.PermanentRedirect, "Hello world")
             }
         }
 
-        handleRequest(HttpMethod.Get, "/redirect") {
-
-        }.response.let {response ->
-
-            val content = response.content!!
-
-            assertThat(response.status()).isEqualTo(HttpStatusCode.PermanentRedirect)
-            assertThat(content).isEqualTo("Hello world")
+        val client = createClient {
+            followRedirects = false
         }
+
+        val response = client.get("/redirect")
+        val content = response.body<String>()
+
+        assertThat(response.status).isEqualTo(HttpStatusCode.PermanentRedirect)
+        assertThat(content).isEqualTo("Hello world")
     }
 
     @Test
-    internal fun `use gson`() = withTestApplication{
-        application.install(RFC7807Problems) {
+    internal fun `use gson`() = testApplication {
+        install(RFC7807Problems) {
             gson{}
         }
 
-        application.routing {
+        routing {
             get("/error") {
                 throw IllegalArgumentException()
             }
         }
 
-        handleRequest(HttpMethod.Get, "/error") {
+        val response = client.get("/error")
 
-        }.response.let {response ->
+        val content = objectMapper.readTree(response.body<String>())
+        println(response.body<String>())
 
-            val content = objectMapper.readTree(response.content)
-            println(response.content)
-
-            assertThat(response.status()).isEqualTo(HttpStatusCode.InternalServerError)
-            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
-            assertThat(content.get("instance").textValue()).isEqualTo("/error")
-            assertThat(content.get("status").intValue()).isEqualTo(500)
-            assertThat(content.get("title").textValue()).isEqualTo("Internal Server Error")
-        }
+        assertThat(response.status).isEqualTo(HttpStatusCode.InternalServerError)
+        assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+        assertThat(content.get("instance").textValue()).isEqualTo("/error")
+        assertThat(content.get("status").intValue()).isEqualTo(500)
+        assertThat(content.get("title").textValue()).isEqualTo("Internal Server Error")
     }
 
     @Test
-    internal fun `use custom problem converter`() = withTestApplication{
-        application.install(RFC7807Problems) {
+    internal fun `use custom problem converter`() = testApplication {
+        install(RFC7807Problems) {
             converter(TestProblemConverter())
         }
 
-        application.routing {
+        routing {
             get("/error") {
                 throw IllegalArgumentException()
             }
         }
 
-        handleRequest(HttpMethod.Get, "/error") {
+        val response = client.get("/error")
 
-        }.response.let {response ->
+        val content = objectMapper.readTree(response.body<String>())
+        println(response.body<String>())
 
-            val content = objectMapper.readTree(response.content)
-            println(response.content)
-
-            assertThat(response.status()).isEqualTo(HttpStatusCode.InternalServerError)
-            assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
-            assertThat(content.get("my_title").textValue()).isEqualTo("is testie")
-        }
+        assertThat(response.status).isEqualTo(HttpStatusCode.InternalServerError)
+        assertThat(response.contentType()).isEqualTo(ContentType("application", "problem+json"))
+        assertThat(content.get("my_title").textValue()).isEqualTo("is testie")
     }
-
 }
 
 class TestProblemConverter : ProblemConverter {
@@ -347,7 +311,6 @@ class TestProblemConverter : ProblemConverter {
             }
         """.trimIndent()
     }
-
 }
 
 class TestBusinessException(
