@@ -1,13 +1,13 @@
 plugins {
     kotlin("jvm") version "1.8.0"
     id("org.jetbrains.dokka") version "0.9.18"
-    id("io.gitlab.arturbosch.detekt") version "1.15.0"
+    id("io.gitlab.arturbosch.detekt") version "1.22.0"
     `maven-publish`
     signing
 }
 
 group = "com.tyntec"
-version = "0.8"
+version = "0.8.1"
 
 val ktorVersion = "2.2.2"
 val jacksonVersion = "2.12.0"
@@ -16,7 +16,7 @@ val ossUsername: String? by project
 val ossPassword: String? by project
 
 detekt {
-    input = files("src/main/kotlin")
+    source = files("src/main/kotlin")
     config = files("config/detekt/config.yml")
 }
 
@@ -29,6 +29,7 @@ dependencies {
     implementation(ktor("serialization-gson"))
     implementation(ktor("client-content-negotiation"))
     implementation(kotlin("stdlib-jdk8"))
+    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.22.0")
 
     api(ktorServer("core"))
     testImplementation(ktorServer("tests"))
