@@ -1,40 +1,43 @@
 plugins {
-    kotlin("jvm") version "1.4.21"
-    id("org.jetbrains.dokka") version "0.9.18"
-    id("io.gitlab.arturbosch.detekt") version "1.15.0"
+    kotlin("jvm") version "1.8.0"
+    id("org.jetbrains.dokka") version "1.7.20"
+    id("io.gitlab.arturbosch.detekt") version "1.22.0"
     `maven-publish`
     signing
 }
 
 group = "com.tyntec"
-version = "0.8"
+version = "0.8.1"
 
-val ktorVersion = "1.5.0"
+val ktorVersion = "2.2.2"
 val jacksonVersion = "2.12.0"
 val junitVersion = "5.4.2"
 val ossUsername: String? by project
 val ossPassword: String? by project
 
 detekt {
-    input = files("src/main/kotlin")
+    source = files("src/main/kotlin")
     config = files("config/detekt/config.yml")
 }
 
 repositories {
-    jcenter()
+    mavenCentral()
+    mavenLocal()
 }
 
 dependencies {
-    implementation(ktor("jackson"))
-    implementation(ktor("gson"))
+    implementation(ktor("serialization-jackson"))
+    implementation(ktor("serialization-gson"))
+    implementation(ktor("client-content-negotiation"))
     implementation(kotlin("stdlib-jdk8"))
-    
+    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.22.0")
+
     api(ktorServer("core"))
     testImplementation(ktorServer("tests"))
     testImplementation("com.willowtreeapps.assertk:assertk-jvm:0.17")
     testImplementation(junit("api"))
     testImplementation(junit("params"))
-    testRuntime(junit("engine", "5.3.2"))
+    testImplementation(junit("engine", "5.3.2"))
 }
 
 fun DependencyHandler.ktor(module: String, version: String = ktorVersion): Any =
@@ -62,8 +65,8 @@ tasks.register<Jar>("sourcesJar") {
 }
 
 tasks.register<Jar>("javadocJar") {
-    dependsOn("dokka")
-    from(tasks["dokka"])
+    dependsOn("dokkaHtml")
+    from(tasks["dokkaHtml"])
     archiveClassifier.set("javadoc")
 }
 
