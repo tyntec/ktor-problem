@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm") version "1.8.0"
-    id("org.jetbrains.dokka") version "0.9.18"
+    id("org.jetbrains.dokka") version "1.7.20"
     id("io.gitlab.arturbosch.detekt") version "1.22.0"
     `maven-publish`
     signing
@@ -22,6 +22,7 @@ detekt {
 
 repositories {
     mavenCentral()
+    mavenLocal()
 }
 
 dependencies {
@@ -64,8 +65,8 @@ tasks.register<Jar>("sourcesJar") {
 }
 
 tasks.register<Jar>("javadocJar") {
-    dependsOn("dokka")
-    from(tasks["dokka"])
+    dependsOn("dokkaHtml")
+    from(tasks["dokkaHtml"])
     archiveClassifier.set("javadoc")
 }
 
